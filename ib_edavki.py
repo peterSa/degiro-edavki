@@ -13,6 +13,7 @@ from xml.dom import minidom
 import re
 from generators import doh_obr
 from difflib import SequenceMatcher
+import csv
 
 
 bsRateXmlUrl = "https://www.bsi.si/_data/tecajnice/dtecbs-l.xml"
@@ -68,7 +69,7 @@ def getCurrencyRate(dateStr, currency, rates):
     if dateStr in rates and currency in rates[dateStr]:
         rate = float(rates[dateStr][currency])
     else:
-        date = datetime.datetime.strptime(dateStr, "%Y%m%d")
+        date = datetime.datetime.strptime(dateStr, "%d/%m/%Y")
         for i in range(1, 10):
             lastWorkingDate = date - datetime.timedelta(days=i)
             lastWorkingDateStr = lastWorkingDate.strftime("%Y%m%d")
@@ -109,9 +110,9 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "ibXmlFiles",
-        metavar="ib-xml-file",
-        help="InteractiveBrokers XML ouput file(s) (see README.md on how to generate one)",
+        "degiroCSVFiles",
+        metavar="degiro-csv-file",
+        help="Degiro CSV ouput file(s) (see README.md on how to generate one)",
         nargs="+",
     )
     parser.add_argument(
@@ -130,7 +131,7 @@ def main():
     )
 
     args = parser.parse_args()
-    ibXmlFilenames = args.ibXmlFiles
+    degiroCSVFilenames = args.degiroCSVFiles
     test = args.t
     if args.y == 0:
         if test == True:
@@ -171,14 +172,16 @@ def main():
     if os.path.isfile("companies.xml"):
         cmpns = xml.etree.ElementTree.parse("companies.xml").getroot()
         for company in cmpns:
-            c = {
-                "symbol": company.find("symbol").text,
-                "name": company.find("name").text,
-                "taxNumber": company.find("taxNumber").text,
-                "address": company.find("address").text,
-                "country": company.find("country").text,
-            }
-            companies[c["symbol"]] = c
+            if(company.find("degiroName") is not None):
+                c = {
+                    "symbol": company.find("symbol").text,
+                    "name": company.find("name").text,
+                    "taxNumber": company.find("taxNumber").text,
+                    "address": company.find("address").text,
+                    "degiroName": company.find("degiroName").text.encode('ascii', 'xmlcharrefreplace'),
+                    "country": company.find("country").text,
+                }
+                companies[c.get("degiroName", False) or c["symbol"]] = c
 
     """ Fetch relief-statements.xml from GitHub if it doesn't exist and use the data for Doh-Div.xml """
     if not os.path.isfile("relief-statements.xml"):
@@ -223,41 +226,19 @@ def main():
     ibCashTransactionsList = []
     ibSecuritiesInfoList = []
     ibEntities = []
-    for ibXmlFilename in ibXmlFilenames:
-        ibXml = xml.etree.ElementTree.parse(ibXmlFilename).getroot()
-        ibFlexStatements = ibXml[0]
-        for ibFlexStatement in ibFlexStatements:
-            ibTradesList.append(ibFlexStatement.find("Trades"))
-            ibCashTransactionsList.append(ibFlexStatement.find("CashTransactions"))
-            ibSecuritiesInfoList.append(ibFlexStatement.find("SecuritiesInfo"))
-
-            if ibFlexStatement.find("AccountInformation") is not None:
-                for entity in ibEntities:
-                    if entity["accountId"] == ibFlexStatement.find(
-                        "AccountInformation"
-                    ).get("accountId"):
-                        break
-                else:
-                    ibEntity = {
-                        "accountId": ibFlexStatement.find("AccountInformation").get(
-                            "accountId"
-                        ),
-                        "ibEntity": ibFlexStatement.find("AccountInformation").get(
-                            "ibEntity"
-                        ),
-                    }
-                    ibEntities.append(ibEntity)
-            else:
-                print(
-                    "Account Information section of flex report is missing for account "
-                    + ibFlexStatement.get("accountId")
-                    + " in file "
-                    + ibXmlFilename
-                )
-
-            corporateActions = ibFlexStatement.find("CorporateActions")
-            if corporateActions is not None:
-                addStockSplits(corporateActions)
+    for csvFilename in degiroCSVFilenames:
+        with open(csvFilename, newline='') as csvfile:
+            reader = csv.DictReader(csvfile, delimiter=';')
+            for row in reader:
+                if(row and row.get("Description", False)):
+                    desc = row["Description"]
+                    # ibTradesList.append(desc.find("Trades"))
+                    if(desc.find("Dividend") >= 0):
+                        ibCashTransactionsList.append(row)
+                    if(desc.find("Transaction") >= 0):
+                        ibCashTransactionsList.append(row)
+                # ibSecuritiesInfoList.append(desc.find("SecuritiesInfo"))
+        print(ibCashTransactionsList)
 
     if test == True:
         statementStartDate = str(reportYear + testYearDiff) + "0101"
@@ -1089,104 +1070,125 @@ def main():
     for ibCashTransactions in ibCashTransactionsList:
         if ibCashTransactions is None:
             continue
-        for ibCashTransaction in ibCashTransactions:
-            if (
-                ibCashTransaction.tag == "CashTransaction"
-                and ibCashTransaction.attrib["dateTime"].startswith(str(reportYear))
-                and ibCashTransaction.attrib["type"]
-                in ["Dividends", "Payment In Lieu Of Dividends"]
-            ):
-                dividend = {
-                    "currency": ibCashTransaction.attrib["currency"],
-                    "type": ibCashTransaction.attrib["type"],
-                    "conid": ibCashTransaction.attrib["conid"],
-                    "amount": float(ibCashTransaction.attrib["amount"]),
-                    "symbol": ibCashTransaction.attrib["symbol"],
-                    "description": ibCashTransaction.attrib["description"],
-                    "dateTime": ibCashTransaction.attrib["dateTime"],
-                    "transactionID": ibCashTransaction.attrib["transactionID"],
-                    "tax": 0,
-                    "taxEUR": 0,
-                }
-                dividend["securityID"] = ibCashTransaction.attrib["securityID"]
-                if dividend["securityID"] == "":
-                    dividend["securityID"] = dividend["conid"]
-                if companies and dividend["symbol"] in companies:
-                    dividend["name"] = companies[dividend["symbol"]]["name"]
-                    dividend["taxNumber"] = companies[dividend["symbol"]]["taxNumber"]
-                    dividend["address"] = companies[dividend["symbol"]]["address"]
-                    dividend["country"] = companies[dividend["symbol"]]["country"]
-                    if "reliefStatement" in companies[dividend["symbol"]]:
-                        dividend["reliefStatement"] = companies[dividend["symbol"]][
-                            "reliefStatement"
-                        ]
-                """ Convert amount to EUR """
-                if dividend["currency"] == "EUR":
-                    dividend["amountEUR"] = dividend["amount"]
-                else:
-                    dividend["amountEUR"] = dividend["amount"] / getCurrencyRate(
-                        dividend["dateTime"][0:8], dividend["currency"], rates
-                    )
-                dividends.append(dividend)
-        for ibCashTransaction in ibCashTransactions:
-            if (
-                ibCashTransaction.tag == "CashTransaction"
-                and ibCashTransaction.attrib["dateTime"].startswith(str(reportYear))
-                and ibCashTransaction.attrib["type"] == "Withholding Tax"
-            ):
-                potentiallyMatchingDividends = []
-                for dividend in dividends:
-                    if (
-                        dividend["dateTime"][0:8]
-                        == ibCashTransaction.attrib["dateTime"][0:8]
-                        and dividend["symbol"] == ibCashTransaction.attrib["symbol"]
-                        and dividend["transactionID"]
-                        < ibCashTransaction.attrib["transactionID"]
-                    ):
-                        potentiallyMatchingDividends.append(dividend)
 
-                if len(potentiallyMatchingDividends) == 0:
-                    print(
-                        "Cannot find a matching dividend for %s (%s) of %s."
-                        % (
-                            ibCashTransaction.attrib["description"],
-                            ibCashTransaction.attrib["dateTime"],
-                            ibCashTransaction.attrib["amount"],
-                        )
-                    )
-                elif len(potentiallyMatchingDividends) == 1:
-                    closestDividend = potentiallyMatchingDividends[0]
-                else:
-                    """There are multiple dividends that potentially match the given
-                    tax. Unfortunately there is no reference that would point the
-                    tax entry to a dividend entry so we employ a simple string
-                    matching trick and find the dividend with a description that is
-                    the closest to the tax description.
-                    """
-                    closestDividend = potentiallyMatchingDividends[0]
-                    bestMatchLen = 0
-                    for dividend in potentiallyMatchingDividends:
-                        taxDescription = ibCashTransaction.attrib["description"]
-                        dividendDescription = dividend["description"]
-                        match = SequenceMatcher(
-                            None, taxDescription, dividendDescription
-                        ).find_longest_match(
-                            0, len(taxDescription), 0, len(dividendDescription)
-                        )
-                        if match.size > bestMatchLen:
-                            bestMatchLen = match.size
-                            closestDividend = dividend
+        #Fix dividend tax for previous record if it is Dividend tax
+        if (
+            ibCashTransactions.get("Date").find(str(reportYear))
+            and ibCashTransactions.get("Description").find("Dividend Tax") >= 0
+        ):
+            dividend = dividends[len(dividends)-1]
+            dividend['tax'] = abs(float(ibCashTransactions["Change"]))
 
-                closestDividendTax = -float(ibCashTransaction.attrib["amount"])
-                """ Convert amount to EUR """
-                if ibCashTransaction.attrib["currency"] == "EUR":
-                    closestDividend["taxEUR"] += closestDividendTax
-                else:
-                    closestDividend["taxEUR"] += closestDividendTax / getCurrencyRate(
-                        ibCashTransaction.attrib["dateTime"][0:8],
-                        ibCashTransaction.attrib["currency"],
-                        rates,
-                    )
+            """ Convert amount to EUR """
+            if dividend["currency"] == "EUR":
+                dividend["taxEUR"] = dividend["tax"]
+            else:
+                dividend["taxEUR"] = dividend["tax"] / getCurrencyRate(
+                    dividend["dateTime"], dividend["currency"], rates
+                )
+
+            dividends[len(dividends) - 1] = dividend
+
+        elif (
+            ibCashTransactions.get("Date").find(str(reportYear))
+            and ibCashTransactions.get("Description").find("Dividend") >= 0
+        ):
+            dividend = {
+                "currency": ibCashTransactions["Currency"],
+                "type": "Dividends",
+                "amount": float(ibCashTransactions["Change"]),
+                "degiroName": ibCashTransactions["Product"].encode('ascii', 'xmlcharrefreplace'),
+                "ISIN": ibCashTransactions["ISIN"],
+                "description": ibCashTransactions["Description"],
+                "dateTime": ibCashTransactions["Value date"],
+                "transactionID": ibCashTransactions["Order ID"],
+                "tax": 0,
+                "taxEUR": 0,
+            }
+
+            if companies and dividend["degiroName"] in companies:
+                dividend["name"] = companies[dividend["degiroName"]]["name"]
+                dividend["taxNumber"] = companies[dividend["degiroName"]]["taxNumber"]
+                dividend["address"] = companies[dividend["degiroName"]]["address"]
+                dividend["country"] = companies[dividend["degiroName"]]["country"]
+                dividend["symbol"] = companies[dividend["degiroName"]]["symbol"]
+                if "reliefStatement" in companies[dividend["degiroName"]]:
+                    dividend["reliefStatement"] = companies[dividend["degiroName"]][
+                        "reliefStatement"
+                    ]
+            else:
+                print(dividend)
+                print( "Missing degiro name")
+                sys.exit(
+
+                )
+            """ Convert amount to EUR """
+            if dividend["currency"] == "EUR":
+                dividend["amountEUR"] = dividend["amount"]
+            else:
+                dividend["amountEUR"] = dividend["amount"] / getCurrencyRate(
+                    dividend["dateTime"], dividend["currency"], rates
+                )
+            dividends.append(dividend)
+        # for ibCashTransaction in ibCashTransactions:
+        #     if (
+        #         ibCashTransaction.tag == "CashTransaction"
+        #         and ibCashTransaction.attrib["dateTime"].startswith(str(reportYear))
+        #         and ibCashTransaction.attrib["type"] == "Withholding Tax"
+        #     ):
+        #         potentiallyMatchingDividends = []
+        #         for dividend in dividends:
+        #             if (
+        #                 dividend["dateTime"][0:8]
+        #                 == ibCashTransaction.attrib["dateTime"][0:8]
+        #                 and dividend["symbol"] == ibCashTransaction.attrib["symbol"]
+        #                 and dividend["transactionID"]
+        #                 < ibCashTransaction.attrib["transactionID"]
+        #             ):
+        #                 potentiallyMatchingDividends.append(dividend)
+        #
+        #         if len(potentiallyMatchingDividends) == 0:
+        #             print(
+        #                 "Cannot find a matching dividend for %s (%s) of %s."
+        #                 % (
+        #                     ibCashTransaction.attrib["description"],
+        #                     ibCashTransaction.attrib["dateTime"],
+        #                     ibCashTransaction.attrib["amount"],
+        #                 )
+        #             )
+        #         elif len(potentiallyMatchingDividends) == 1:
+        #             closestDividend = potentiallyMatchingDividends[0]
+        #         else:
+        #             """There are multiple dividends that potentially match the given
+        #             tax. Unfortunately there is no reference that would point the
+        #             tax entry to a dividend entry so we employ a simple string
+        #             matching trick and find the dividend with a description that is
+        #             the closest to the tax description.
+        #             """
+        #             closestDividend = potentiallyMatchingDividends[0]
+        #             bestMatchLen = 0
+        #             for dividend in potentiallyMatchingDividends:
+        #                 taxDescription = ibCashTransaction.attrib["description"]
+        #                 dividendDescription = dividend["description"]
+        #                 match = SequenceMatcher(
+        #                     None, taxDescription, dividendDescription
+        #                 ).find_longest_match(
+        #                     0, len(taxDescription), 0, len(dividendDescription)
+        #                 )
+        #                 if match.size > bestMatchLen:
+        #                     bestMatchLen = match.size
+        #                     closestDividend = dividend
+        #
+        #         closestDividendTax = -float(ibCashTransaction.attrib["amount"])
+        #         """ Convert amount to EUR """
+        #         if ibCashTransaction.attrib["currency"] == "EUR":
+        #             closestDividend["taxEUR"] += closestDividendTax
+        #         else:
+        #             closestDividend["taxEUR"] += closestDividendTax / getCurrencyRate(
+        #                 ibCashTransaction.attrib["dateTime"][0:8],
+        #                 ibCashTransaction.attrib["currency"],
+        #                 rates,
+        #             )
 
     """ Dividends can be reversed. If there is a reversal, remove both the reversal
         and the original dividend.
@@ -1277,12 +1279,16 @@ def main():
     ]
 
     dividends = sorted(dividends, key=lambda k: k["dateTime"][0:8])
+    print(dividends)
     for dividend in dividends:
+        print(dividend["symbol"])
         if round(dividend["amountEUR"], 2) <= 0:
             continue
         Dividend = xml.etree.ElementTree.SubElement(body, "Dividend")
+        date = datetime.datetime.strptime(dividend["dateTime"], "%d/%m/%Y")
+
         xml.etree.ElementTree.SubElement(Dividend, "Date").text = (
-            dYear + "-" + dividend["dateTime"][4:6] + "-" + dividend["dateTime"][6:8]
+            date.strftime("%Y-%m-%d")
         )
         if "taxNumber" in dividend:
             xml.etree.ElementTree.SubElement(

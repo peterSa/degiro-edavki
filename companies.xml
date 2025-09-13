@@ -1,5 +1,14 @@
 <companies>
     <company>
+        <conid>US29382R1077</conid>
+        <symbol>EVC</symbol>
+        <name>Entravision Communication Corp</name>
+        <taxNumber>954783236</taxNumber>
+        <address>STE 6000 WEST, 2425 OLYMPIC BLVD, SANTA MONICA, CA, 90404</address>
+        <degiroName>ENTRAVISION COMMUNICAT</degiroName>
+        <country>US</country>
+    </company>
+    <company>
         <conid>265598</conid>
         <symbol>AAPL</symbol>
         <name>Apple Inc</name>
@@ -41,6 +50,7 @@
     <company>
         <symbol>DIS</symbol>
         <name>The Walt Disney Company</name>
+        <degiroName>WALT DISNEY COMPANY (T</degiroName>
         <taxNumber>830940635</taxNumber>
         <address>500 South Buena Vista Street, Burbank, California</address>
         <country>US</country>
@@ -72,6 +82,7 @@
         <conid>270639</conid>
         <symbol>INTC</symbol>
         <name>Intel Corp</name>
+        <degiroName>INTEL CORPORATION - CO</degiroName>
         <taxNumber>941672743</taxNumber>
         <address>2200 Mission College Blvd, Santa Clara, CA 95054</address>
         <country>US</country>
@@ -239,6 +250,7 @@
         <symbol>NEM</symbol>
         <name>Newmont Corp</name>
         <taxNumber>841611629</taxNumber>
+        <degiroName>NEWMONT MINING CORPORA</degiroName>
         <address>6363 South Fiddlers Green Circle, Greenwood Village, CO 80111</address>
         <country>US</country>
     </company>
@@ -575,6 +587,7 @@
     <company>
         <symbol>T</symbol>
         <name>At&amp;t Inc.</name>
+        <degiroName>AT&amp;T INC.</degiroName>
         <taxNumber>431301883</taxNumber>
         <address>208 S. Akard St, Attn : James Lacy, Dallas, TX 75202</address>
         <country>US</country>
@@ -708,6 +721,7 @@
     <company>
         <symbol>WFC</symbol>
         <name>Wells Fargo &amp; Company</name>
+        <degiroName>WELLS FARGO &amp; COMPANY</degiroName>
         <taxNumber>410449260</taxNumber>
         <address>420 Montgomery Street, San Francisco, CA 94163</address>
         <country>US</country>
@@ -722,6 +736,7 @@
     <company>
         <symbol>ADM</symbol>
         <name>Archer-daniels-midland Co</name>
+        <degiroName>ARCHER DANIELS MIDLAND CO</degiroName>
         <taxNumber>410129150</taxNumber>
         <address>77 W. Wacker Dr., Chicago, IL 60601</address>
         <country>US</country>
@@ -1106,5 +1121,14 @@
         <taxNumber>841493125</taxNumber>
         <address>145 King Street East, Suite 400, Toronto, Ontario M5C 2Y7</address>
         <country>CA</country>
+    </company>
+        <company>
+        <conid>xxx</conid>
+        <symbol>HIHO</symbol>
+        <name>HIGHWAY HOLDINGS LIMIT</name>
+        <degiroName>HIGHWAY HOLDINGS LIMIT</degiroName>
+        <taxNumber>00</taxNumber>
+        <address>Suite No. 1823 1801, Level 18, Landmark North, 39 Lung Sum Avenue, Sheung Shui, New Territories, Hong Kong</address>
+        <country>US</country>
     </company>
 </companies>

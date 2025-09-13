@@ -54,52 +54,50 @@ def generate(taxpayerConfig,
              test,
              testYearDiff):
     interests = []
+    print(ibCashTransactionsList)
     for ibCashTransactions in ibCashTransactionsList:
         if ibCashTransactions is None:
             continue
-        for ibCashTransaction in ibCashTransactions:
-            if (
-                ibCashTransaction.tag == "CashTransaction"
-                and ibCashTransaction.get("dateTime").startswith(str(reportYear))
-                and ibCashTransaction.get("type")
-                in ["Broker Interest Received"]
-            ):
-                interest = {
-                    "accountId": ibCashTransaction.get("accountId"),
-                    "currency": ibCashTransaction.get("currency"),
-                    "amount": float(ibCashTransaction.get("amount")),
-                    "description": ibCashTransaction.get("description"),
-                    "dateTime": ibCashTransaction.get("dateTime"),
-                    "tax": 0,
-                    "taxEUR": 0,
-                }
+        if (ibCashTransactions.get("Date").find(str(reportYear))
+            and ibCashTransactions.get("Description")
+            in ["Flatex Interest Income"]
+        ):
+            interest = {
+                "accountId": ibCashTransactions.get("accountId"),
+                "currency": ibCashTransactions.get("currency"),
+                "amount": float(ibCashTransactions.get("amount")),
+                "description": ibCashTransactions.get("description"),
+                "dateTime": ibCashTransactions.get("dateTime"),
+                "tax": 0,
+                "taxEUR": 0,
+            }
 
-                """ Convert amount to EUR """
-                if interest["currency"] == "EUR":
-                    interest["amountEUR"] = interest["amount"]
+            """ Convert amount to EUR """
+            if interest["currency"] == "EUR":
+                interest["amountEUR"] = interest["amount"]
+            else:
+                date = interest["dateTime"][0:8]
+                currency = interest["currency"]
+                if date in rates and currency in rates[date]:
+                    rate = float(rates[date][currency])
                 else:
-                    date = interest["dateTime"][0:8]
-                    currency = interest["currency"]
-                    if date in rates and currency in rates[date]:
-                        rate = float(rates[date][currency])
-                    else:
-                        for i in range(0, 6):
-                            date = str(int(date) - 1)
-                            if date in rates and currency in rates[date]:
-                                rate = float(rates[date][currency])
-                                print(
-                                    "There is no exchange rate for "
-                                    + str(interest["dateTime"][0:8])
-                                    + ", using "
-                                    + str(date)
-                                )
-                                break
-                            if i == 6:
-                                sys.exit(
-                                    "Error: There is no exchange rate for " + str(date)
-                                )
-                    interest["amountEUR"] = interest["amount"] / rate
-                interests.append(interest)
+                    for i in range(0, 6):
+                        date = str(int(date) - 1)
+                        if date in rates and currency in rates[date]:
+                            rate = float(rates[date][currency])
+                            print(
+                                "There is no exchange rate for "
+                                + str(interest["dateTime"][0:8])
+                                + ", using "
+                                + str(date)
+                            )
+                            break
+                        if i == 6:
+                            sys.exit(
+                                "Error: There is no exchange rate for " + str(date)
+                            )
+                interest["amountEUR"] = interest["amount"] / rate
+            interests.append(interest)
 
     """ Merge multiple dividends or payments in lieu of dividents on the same day from the same company into a single entry """
     mergedInterests = []
