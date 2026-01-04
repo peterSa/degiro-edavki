@@ -1,0 +1,13 @@
+{
+    "taxNumber": "12345678",
+    "taxpayerType": "FO",
+    "name": "Test User",
+    "address1": "Test Address 1",
+    "city": "Ljubljana",
+    "postNumber": "1000",
+    "postName": "Ljubljana",
+    "email": "test@example.com",
+    "telephoneNumber": "+38612345678",
+    "residentCountry": "SI",
+    "isResident": true
+}

@@ -52,7 +52,9 @@ def generate(taxpayerConfig,
              rates,
              reportYear,
              test,
-             testYearDiff):
+             testYearDiff,
+             output_dir='.',
+             output_filename='Doh-Obr.xml'):
     interests = []
     for degiroCashTransactions in degiroCashTransactionsList:
         if degiroCashTransactions is None:
@@ -205,6 +207,9 @@ def generate(taxpayerConfig,
 
     xmlString = xml.etree.ElementTree.tostring(envelope)
     prettyXmlString = minidom.parseString(xmlString).toprettyxml(indent="\t")
-    with open("Doh-Obr.xml", "w", encoding="utf-8") as f:
+    
+    import os
+    output_path = os.path.join(output_dir, output_filename)
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write(prettyXmlString)
-        print("Doh-Obr.xml created")
+        print(f"Doh-Obr.xml created: {output_path}")

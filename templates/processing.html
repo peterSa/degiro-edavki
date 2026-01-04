@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+    <div class="col-md-6 text-center">
+        <div class="card">
+            <div class="card-body p-5">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <h3 class="mb-3">Obdelava v teku</h3>
+                <p class="text-muted mb-4" id="statusMessage">
+                    Vaše podatke obdelavamo... Prosimo, počakajte.
+                </p>
+                <div class="progress mb-3" style="height: 20px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar" style="width: 0%;">
+                    </div>
+                </div>
+                <p class="small text-muted" id="subMessage">
+                    To lahko traja nekaj minut, odvisno od velikosti datotek.
+                </p>
+                
+                {% if job %}
+                <div class="alert alert-info mt-4">
+                    <strong>Podrobnosti opravila:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>Leto: {{ job.year }}</li>
+                        <li>Število datotek: {{ job.csv_files|count if job.csv_files else 0 }}</li>
+                        <li>Način: {% if job.test_mode %}Testni{% else %}Realni{% endif %}</li>
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.loading-spinner {
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    width: 80px;
+    height: 80px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Poll for status updates
+    const jobId = {{ job.id }};
+    
+    function pollStatus() {
+        fetch(`/api/job-status/${jobId}`)
+            .then(response => response.json())
+            .then(data => {
+                updateProgress(data);
+                
+                if (data.status === 'completed') {
+                    window.location.href = `/results/${jobId}`;
+                } else if (data.status === 'error') {
+                    showError(data.error);
+                } else {
+                    setTimeout(pollStatus, 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Polling error:', error);
+                setTimeout(pollStatus, 5000);
+            });
+    }
+    
+    function updateProgress(data) {
+        const progressBar = document.getElementById('progressBar');
+        const statusMessage = document.getElementById('statusMessage');
+        const subMessage = document.getElementById('subMessage');
+        
+        if (data.progress) {
+            progressBar.style.width = `${data.progress}%`;
+        }
+        
+        if (data.message) {
+            statusMessage.textContent = data.message;
+        }
+        
+        if (data.logs && data.logs.length > 0) {
+            subMessage.textContent = `Zadnja aktivnost: ${data.logs[data.logs.length - 1]}`;
+        }
+    }
+    
+    function showError(error) {
+        const progressBar = document.getElementById('progressBar');
+        const statusMessage = document.getElementById('statusMessage');
+        const subMessage = document.getElementById('subMessage');
+        
+        progressBar.classList.remove('progress-bar-striped', 'progress-bar-animated');
+        progressBar.classList.add('bg-danger');
+        progressBar.style.width = '100%';
+        
+        statusMessage.textContent = 'Napaka pri obdelavi!';
+        statusMessage.classList.add('text-danger');
+        
+        subMessage.textContent = error || 'Prišlo je do nepričakovane napake.';
+        subMessage.classList.add('text-danger');
+        
+        setTimeout(() => {
+            window.location.href = '/';
+        }, 5000);
+    }
+    
+    // Start polling
+    setTimeout(pollStatus, 1000);
+});
+</script>
+{% endblock %}

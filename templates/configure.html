@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Nastavitve davčnega zavezanca</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('save_configure') }}">
+                    <div class="mb-3">
+                        <label for="taxNumber" class="form-label">Davčna številka *</label>
+                        <input type="text" class="form-control" id="taxNumber" name="taxNumber" 
+                               value="{{ taxpayer.tax_number if taxpayer else '' }}" required
+                               pattern="[0-9]{8}" title="8 števil">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Ime in priimek *</label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ taxpayer.name if taxpayer else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="address1" class="form-label">Naslov *</label>
+                        <input type="text" class="form-control" id="address1" name="address1" 
+                               value="{{ taxpayer.address1 if taxpayer else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="city" class="form-label">Mesto *</label>
+                        <input type="text" class="form-control" id="city" name="city" 
+                               value="{{ taxpayer.city if taxpayer else '' }}" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="postNumber" class="form-label">Poštna številka *</label>
+                            <input type="text" class="form-control" id="postNumber" name="postNumber" 
+                                   value="{{ taxpayer.post_number if taxpayer else '' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="postName" class="form-label">Pošta *</label>
+                            <input type="text" class="form-control" id="postName" name="postName" 
+                                   value="{{ taxpayer.post_name if taxpayer else '' }}" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">E-pošta *</label>
+                        <input type="email" class="form-control" id="email" name="email" 
+                               value="{{ taxpayer.email if taxpayer else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="telephoneNumber" class="form-label">Telefonska številka *</label>
+                        <input type="text" class="form-control" id="telephoneNumber" name="telephoneNumber" 
+                               value="{{ taxpayer.telephone_number if taxpayer else '' }}" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="residentCountry" class="form-label">Država *</label>
+                        <select class="form-select" id="residentCountry" name="residentCountry" required>
+                            <option value="SI" {% if taxpayer and taxpayer.resident_country == 'SI' %}selected{% endif %}>
+                                Slovenija
+                            </option>
+                            <option value="AT" {% if taxpayer and taxpayer.resident_country == 'AT' %}selected{% endif %}>
+                                Avstrija
+                            </option>
+                            <option value="HR" {% if taxpayer and taxpayer.resident_country == 'HR' %}selected{% endif %}>
+                                Hrvaška
+                            </option>
+                            <option value="HU" {% if taxpayer and taxpayer.resident_country == 'HU' %}selected{% endif %}>
+                                Madžarska
+                            </option>
+                            <option value="DE" {% if taxpayer and taxpayer.resident_country == 'DE' %}selected{% endif %}>
+                                Nemčija
+                            </option>
+                            <option value="IT" {% if taxpayer and taxpayer.resident_country == 'IT' %}selected{% endif %}>
+                                Italija
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isResident" name="isResident"
+                                   {% if taxpayer and taxpayer.is_resident == 'true' %}checked{% endif %}>
+                            <label class="form-check-label" for="isResident">
+                                Zavezanec je rezident Slovenije
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-flex">
+                        <button type="submit" class="btn btn-primary">
+                            Shrani
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            Prekliči
+                        </a>
+                    </div>
+                </form>
+
+                <div class="alert alert-info mt-3">
+                    <small>
+                        * - Obvezna polja. Vaši podatki bodo shranjeni lokalno v datoteko taxpayer.xml.
+                        Podatki se ne pošiljajo na internet in se uporabljajo samo za generiranje XML datotek.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
