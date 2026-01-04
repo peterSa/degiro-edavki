@@ -4,18 +4,18 @@ import xml.etree.ElementTree
 import os.path
 from xml.dom import minidom
 
-""" Fetch ib-affiliates.xml from GitHub if it doesn't exist and use the data for Doh-Obr.xml """
-def getIbAffiliateInfo(ibEntities, accountId):
-    ibAffiliateCode = getIbEntityCode(ibEntities, accountId)
-    if not os.path.isfile("ib-affiliates.xml"):
+""" Fetch degiro-affiliates.xml from GitHub if it doesn't exist and use the data for Doh-Obr.xml """
+def getDegiroAffiliateInfo(degiroEntities, accountId):
+    degiroAffiliateCode = getDegiroEntityCode(degiroEntities, accountId)
+    if not os.path.isfile("degiro-affiliates.xml"):
         urllib.request.urlretrieve(
-            "https://github.com/jamsix/ib-edavki/raw/master/ib-affiliates.xml",
-            "ib-affiliates.xml",
+            "https://github.com/jamsix/ib-edavki/raw/master/degiro-affiliates.xml",
+            "degiro-affiliates.xml",
         )
-    if os.path.isfile("ib-affiliates.xml"):
-        ibAffiliateInfos = xml.etree.ElementTree.parse("ib-affiliates.xml").getroot()
-        for affiliate in ibAffiliateInfos:
-            if affiliate.find("code").text == str(ibAffiliateCode):
+    if os.path.isfile("degiro-affiliates.xml"):
+        degiroAffiliateInfos = xml.etree.ElementTree.parse("degiro-affiliates.xml").getroot()
+        for affiliate in degiroAffiliateInfos:
+            if affiliate.find("code").text == str(degiroAffiliateCode):
                 return {
                     "code": affiliate.find("code").text,
                     "name": affiliate.find("name").text,
@@ -32,42 +32,41 @@ def getIbAffiliateInfo(ibEntities, accountId):
                     "country": "",
                 }
 
-""" Get the IB entity matching account id """
-def getIbEntityCode(ibEntities, accountId):
-    for ibEntity in ibEntities:
-        if (ibEntity["accountId"] == accountId):
-            return ibEntity["ibEntity"]
+""" Get the DeGiro entity matching account id """
+def getDegiroEntityCode(degiroEntities, accountId):
+    for degiroEntity in degiroEntities:
+        if (degiroEntity["accountId"] == accountId):
+            return degiroEntity["ibEntity"]
     
-    print("IB Entity for account "
+    print("DeGiro Entity for account "
         + accountId + " "
         + "not found in flex statement. "
         + "Check your report settings.")
     
     return None
 
-""" Get interest from IB XML """
+""" Get interest from DeGiro CSV """
 def generate(taxpayerConfig,
-             ibEntities,
-             ibCashTransactionsList,
+             degiroEntities,
+             degiroCashTransactionsList,
              rates,
              reportYear,
              test,
              testYearDiff):
     interests = []
-    print(ibCashTransactionsList)
-    for ibCashTransactions in ibCashTransactionsList:
-        if ibCashTransactions is None:
+    for degiroCashTransactions in degiroCashTransactionsList:
+        if degiroCashTransactions is None:
             continue
-        if (ibCashTransactions.get("Date").find(str(reportYear))
-            and ibCashTransactions.get("Description")
+        if (degiroCashTransactions.get("Date").find(str(reportYear))
+            and degiroCashTransactions.get("Description")
             in ["Flatex Interest Income"]
         ):
             interest = {
-                "accountId": ibCashTransactions.get("accountId"),
-                "currency": ibCashTransactions.get("currency"),
-                "amount": float(ibCashTransactions.get("amount")),
-                "description": ibCashTransactions.get("description"),
-                "dateTime": ibCashTransactions.get("dateTime"),
+                "accountId": degiroCashTransactions.get("accountId"),
+                "currency": degiroCashTransactions.get("currency"),
+                "amount": float(degiroCashTransactions.get("amount")),
+                "description": degiroCashTransactions.get("description"),
+                "dateTime": degiroCashTransactions.get("dateTime"),
                 "tax": 0,
                 "taxEUR": 0,
             }
@@ -175,21 +174,21 @@ def generate(taxpayerConfig,
             continue
         Interest = xml.etree.ElementTree.SubElement(Doh_Obr, "Interest")
 
-        ibAffiliateInfo = getIbAffiliateInfo(ibEntities, interest["accountId"])
+        degiroAffiliateInfo = getDegiroAffiliateInfo(degiroEntities, interest["accountId"])
 
         xml.etree.ElementTree.SubElement(Interest, "Date").text = (
             dYear + "-" + interest["dateTime"][4:6] + "-" + interest["dateTime"][6:8]
         )
         xml.etree.ElementTree.SubElement(
             Interest, "IdentificationNumber"
-        ).text = ibAffiliateInfo["taxNumber"]
-        xml.etree.ElementTree.SubElement(Interest, "Name").text = ibAffiliateInfo[
+        ).text = degiroAffiliateInfo["taxNumber"]
+        xml.etree.ElementTree.SubElement(Interest, "Name").text = degiroAffiliateInfo[
             "name"
         ]
-        xml.etree.ElementTree.SubElement(Interest, "Address").text = ibAffiliateInfo[
+        xml.etree.ElementTree.SubElement(Interest, "Address").text = degiroAffiliateInfo[
             "address"
         ]
-        xml.etree.ElementTree.SubElement(Interest, "Country").text = ibAffiliateInfo[
+        xml.etree.ElementTree.SubElement(Interest, "Country").text = degiroAffiliateInfo[
             "country"
         ]
         xml.etree.ElementTree.SubElement(Interest, "Type").text = "2"
